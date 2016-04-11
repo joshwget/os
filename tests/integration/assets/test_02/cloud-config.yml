@@ -1,0 +1,5 @@
+#cloud-config
+rancher:
+  cloud_init:
+    datasources:
+    - url:http://192.168.217.212:8000/cloud-config.yml
