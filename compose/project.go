@@ -32,7 +32,7 @@ func CreateService(cfg *config.CloudConfig, name string, serviceConfig *project.
 }
 
 func CreateServiceSet(name string, cfg *config.CloudConfig, configs map[string]*project.ServiceConfig) (*project.Project, error) {
-	p, err := newProject(name, cfg)
+	p, err := newProject(name, &cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func GetProject(cfg *config.CloudConfig, networkingAvailable bool) (*project.Pro
 	return newCoreServiceProject(cfg, networkingAvailable)
 }
 
-func newProject(name string, cfg *config.CloudConfig) (*project.Project, error) {
+func newProject(name string, cfg **config.CloudConfig) (*project.Project, error) {
 	clientFactory, err := rosDocker.NewClientFactory(docker.ClientOpts{})
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func newProject(name string, cfg *config.CloudConfig) (*project.Project, error) 
 			NoRecreate:        true, // for libcompose to not recreate on project reload, looping up the boot :)
 			EnvironmentLookup: rosDocker.NewConfigEnvironment(cfg),
 			ServiceFactory:    serviceFactory,
-			Log:               cfg.Rancher.Log,
+			Log:               (*cfg).Rancher.Log,
 			LoggerFactory:     logger.NewColorLoggerFactory(),
 		},
 	}
@@ -121,7 +121,9 @@ func newCoreServiceProject(cfg *config.CloudConfig, network bool) (*project.Proj
 	projectEvents := make(chan project.Event)
 	enabled := map[interface{}]interface{}{}
 
-	p, err := newProject("os", cfg)
+	cfgPointer := &cfg
+
+	p, err := newProject("os", cfgPointer)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +137,8 @@ func newCoreServiceProject(cfg *config.CloudConfig, network bool) (*project.Proj
 		if err != nil {
 			return err
 		}
+
+		*cfgPointer = cfg
 
 		enabled = addServices(p, enabled, cfg.Rancher.Services)
 
@@ -193,7 +197,7 @@ func newCoreServiceProject(cfg *config.CloudConfig, network bool) (*project.Proj
 }
 
 func StageServices(cfg *config.CloudConfig, services ...string) error {
-	p, err := newProject("stage-services", cfg)
+	p, err := newProject("stage-services", &cfg)
 	if err != nil {
 		return err
 	}

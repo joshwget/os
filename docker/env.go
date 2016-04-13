@@ -9,10 +9,10 @@ import (
 )
 
 type ConfigEnvironment struct {
-	cfg *config.CloudConfig
+	cfg **config.CloudConfig
 }
 
-func NewConfigEnvironment(cfg *config.CloudConfig) *ConfigEnvironment {
+func NewConfigEnvironment(cfg **config.CloudConfig) *ConfigEnvironment {
 	return &ConfigEnvironment{
 		cfg: cfg,
 	}
@@ -51,5 +51,5 @@ func lookupKeys(cfg *config.CloudConfig, keys ...string) []string {
 
 func (c *ConfigEnvironment) Lookup(key, serviceName string, serviceConfig *project.ServiceConfig) []string {
 	fullKey := fmt.Sprintf("%s/%s", serviceName, key)
-	return lookupKeys(c.cfg, fullKey, key)
+	return lookupKeys(*c.cfg, fullKey, key)
 }
