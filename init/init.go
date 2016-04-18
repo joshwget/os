@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/rancher/docker-from-scratch"
@@ -34,12 +35,12 @@ var (
 	}
 )
 
-func loadModules(cfg *config.CloudConfig) (*config.CloudConfig, error) {
-	mounted := map[string]bool{}
+func lsmod() (map[string]bool, error) {
+	mounted := make(map[string]bool)
 
 	f, err := os.Open("/proc/modules")
 	if err != nil {
-		return cfg, err
+		return nil, err
 	}
 	defer f.Close()
 
@@ -48,15 +49,49 @@ func loadModules(cfg *config.CloudConfig) (*config.CloudConfig, error) {
 		mounted[strings.SplitN(reader.Text(), " ", 2)[0]] = true
 	}
 
+	return mounted, nil
+}
+
+func loadModules(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+	mounted, err := lsmod()
+	if err != nil {
+		return cfg, err
+	}
+
+	probedModules := make(map[string]bool)
+
 	for _, module := range cfg.Rancher.Modules {
 		if mounted[module] {
 			continue
 		}
 
+		probedModules[module] = true
+
 		log.Debugf("Loading module %s", module)
 		if err := exec.Command("modprobe", module).Run(); err != nil {
+			probedModules[module] = false
 			log.Errorf("Could not load module %s, err %v", module, err)
 		}
+	}
+
+	for loadingFinished := false; !loadingFinished; {
+		mounted, err = lsmod()
+		if err != nil {
+			return cfg, err
+		}
+
+		loadingFinished = true
+		for module, ok := range probedModules {
+			if !ok {
+				continue
+			}
+			if _, ok := mounted[module]; !ok {
+				loadingFinished = false
+				break
+			}
+		}
+
+		time.Sleep(1000 * time.Millisecond)
 	}
 
 	return cfg, nil
