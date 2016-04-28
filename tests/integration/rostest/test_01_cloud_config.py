@@ -69,16 +69,6 @@ def test_services_include(qemu, cloud_config):
 
 
 @pytest.mark.timeout(40)
-def test_docker_tls_args(qemu, cloud_config):
-    SSH(qemu, ssh_command).check_call('''
-set -e -x
-sudo ros tls gen
-sleep 5
-docker --tlsverify version
-    '''.strip())
-
-
-@pytest.mark.timeout(40)
 def test_rancher_network(qemu, cloud_config):
     v = SSH(qemu, ssh_command).check_output('''
 ip route get to 10.10.2.120
