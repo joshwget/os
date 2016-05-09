@@ -216,6 +216,12 @@ func RunInit() error {
 			return cfg, nil
 		},
 		loadModules,
+		func(c *config.CloudConfig) (*config.CloudConfig, error) {
+			if err := exec.Command("modprobe", "mpt3sas", "msix_disable=1").Run(); err != nil {
+				log.Errorf("Could not load module %s, err %v", "mpt3sas", err)
+			}
+			return c, nil
+		},
 		tryMountAndBootstrap,
 		func(_ *config.CloudConfig) (*config.CloudConfig, error) {
 			return config.LoadConfig()
