@@ -182,6 +182,7 @@ rancher:
     network-pre:
       image: {{.OS_IMAGES_ROOT}}/os-network:{{.VERSION}}{{.SUFFIX}}
       labels:
+        io.rancher.os.detach: "false"
         io.rancher.os.scope: system
         io.rancher.os.after: cloud-init-pre
       net: host
