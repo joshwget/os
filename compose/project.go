@@ -6,15 +6,19 @@ import (
 	log "github.com/Sirupsen/logrus"
 	yaml "github.com/cloudfoundry-incubator/candiedyaml"
 	"github.com/docker/libcompose/cli/logger"
+	composeConfig "github.com/docker/libcompose/config"
 	"github.com/docker/libcompose/docker"
+	composeClient "github.com/docker/libcompose/docker/client"
 	"github.com/docker/libcompose/project"
+	"github.com/docker/libcompose/project/events"
+	"github.com/docker/libcompose/project/options"
 	"github.com/rancher/os/config"
 	rosDocker "github.com/rancher/os/docker"
 	"github.com/rancher/os/util"
 	"github.com/rancher/os/util/network"
 )
 
-func CreateService(cfg *config.CloudConfig, name string, serviceConfig *project.ServiceConfig) (project.Service, error) {
+func CreateService(cfg *config.CloudConfig, name string, serviceConfig *composeConfig.ServiceConfigV1) (project.Service, error) {
 	if cfg == nil {
 		var err error
 		cfg, err = config.LoadConfig()
@@ -23,7 +27,7 @@ func CreateService(cfg *config.CloudConfig, name string, serviceConfig *project.
 		}
 	}
 
-	p, err := CreateServiceSet("once", cfg, map[string]*project.ServiceConfig{
+	p, err := CreateServiceSet("once", cfg, map[string]*composeConfig.ServiceConfigV1{
 		name: serviceConfig,
 	})
 	if err != nil {
@@ -33,7 +37,7 @@ func CreateService(cfg *config.CloudConfig, name string, serviceConfig *project.
 	return p.CreateService(name)
 }
 
-func CreateServiceSet(name string, cfg *config.CloudConfig, configs map[string]*project.ServiceConfig) (*project.Project, error) {
+func CreateServiceSet(name string, cfg *config.CloudConfig, configs map[string]*composeConfig.ServiceConfigV1) (*project.Project, error) {
 	p, err := newProject(name, cfg, nil)
 	if err != nil {
 		return nil, err
@@ -44,21 +48,20 @@ func CreateServiceSet(name string, cfg *config.CloudConfig, configs map[string]*
 	return p, nil
 }
 
-func RunServiceSet(name string, cfg *config.CloudConfig, configs map[string]*project.ServiceConfig) (*project.Project, error) {
+func RunServiceSet(name string, cfg *config.CloudConfig, configs map[string]*composeConfig.ServiceConfigV1) (*project.Project, error) {
 	p, err := CreateServiceSet(name, cfg, configs)
 	if err != nil {
 		return nil, err
 	}
-
-	return p, p.Up()
+	return p, p.Up(options.Up{})
 }
 
 func GetProject(cfg *config.CloudConfig, networkingAvailable bool) (*project.Project, error) {
 	return newCoreServiceProject(cfg, networkingAvailable)
 }
 
-func newProject(name string, cfg *config.CloudConfig, environmentLookup project.EnvironmentLookup) (*project.Project, error) {
-	clientFactory, err := rosDocker.NewClientFactory(docker.ClientOpts{})
+func newProject(name string, cfg *config.CloudConfig, environmentLookup composeConfig.EnvironmentLookup) (*project.Project, error) {
+	clientFactory, err := rosDocker.NewClientFactory(composeClient.Options{})
 	if err != nil {
 		return nil, err
 	}
@@ -74,23 +77,75 @@ func newProject(name string, cfg *config.CloudConfig, environmentLookup project.
 		ClientFactory: clientFactory,
 		Context: project.Context{
 			ProjectName:       name,
-			NoRecreate:        true, // for libcompose to not recreate on project reload, looping up the boot :)
 			EnvironmentLookup: environmentLookup,
 			ServiceFactory:    serviceFactory,
-			Log:               cfg.Rancher.Log,
 			LoggerFactory:     logger.NewColorLoggerFactory(),
 		},
 	}
 	serviceFactory.Context = context
 
-	return docker.NewProject(context)
+	return docker.NewProject(context, &composeConfig.ParseOptions{
+		Interpolate: true,
+		Validate:    false,
+		Preprocess:  preprocessServiceMap,
+	})
 }
 
-func addServices(p *project.Project, enabled map[interface{}]interface{}, configs map[string]*project.ServiceConfig) map[interface{}]interface{} {
+func preprocessServiceMap(serviceMap composeConfig.RawServiceMap) (composeConfig.RawServiceMap, error) {
+	newServiceMap := make(composeConfig.RawServiceMap)
+
+	for k, v := range serviceMap {
+		newServiceMap[k] = make(composeConfig.RawService)
+
+		for k2, v2 := range v {
+			if k2 == "environment" || k2 == "labels" {
+				newServiceMap[k][k2] = preprocess(v2, true)
+			} else {
+				newServiceMap[k][k2] = preprocess(v2, false)
+			}
+
+		}
+	}
+
+	return newServiceMap, nil
+}
+
+func preprocess(item interface{}, replaceTypes bool) interface{} {
+	switch typedDatas := item.(type) {
+
+	case map[interface{}]interface{}:
+		newMap := make(map[interface{}]interface{})
+
+		for key, value := range typedDatas {
+			newMap[key] = preprocess(value, replaceTypes)
+		}
+		return newMap
+
+	case []interface{}:
+		// newArray := make([]interface{}, 0) will cause golint to complain
+		var newArray []interface{}
+		newArray = make([]interface{}, 0)
+
+		for _, value := range typedDatas {
+			newArray = append(newArray, preprocess(value, replaceTypes))
+		}
+		return newArray
+
+	default:
+		if replaceTypes {
+			return fmt.Sprint(item)
+		}
+		return item
+	}
+}
+
+func addServices(p *project.Project, enabled map[interface{}]interface{}, configs map[string]*composeConfig.ServiceConfigV1) map[interface{}]interface{} {
+	serviceConfigsV2, _ := composeConfig.ConvertServices(configs)
+
 	// Note: we ignore errors while loading services
 	unchanged := true
-	for name, serviceConfig := range configs {
-		hash := project.GetServiceHash(name, serviceConfig)
+	for name, serviceConfig := range serviceConfigsV2 {
+		hash := composeConfig.GetServiceHash(name, serviceConfig)
 
 		if enabled[name] == hash {
 			continue
@@ -124,7 +179,7 @@ func adjustContainerNames(m map[interface{}]interface{}) map[interface{}]interfa
 }
 
 func newCoreServiceProject(cfg *config.CloudConfig, useNetwork bool) (*project.Project, error) {
-	projectEvents := make(chan project.Event)
+	projectEvents := make(chan events.Event)
 	enabled := map[interface{}]interface{}{}
 
 	environmentLookup := rosDocker.NewConfigEnvironment(cfg)
@@ -187,7 +242,7 @@ func newCoreServiceProject(cfg *config.CloudConfig, useNetwork bool) (*project.P
 
 	go func() {
 		for event := range projectEvents {
-			if event.EventType == project.EventContainerStarted && event.ServiceName == "ntp" {
+			if event.EventType == events.ContainerStarted && event.ServiceName == "ntp" {
 				useNetwork = true
 			}
 		}
@@ -231,12 +286,12 @@ func StageServices(cfg *config.CloudConfig, services ...string) error {
 	}
 
 	// Reduce service configurations to just image and labels
-	for serviceName, serviceConfig := range p.Configs {
-		p.Configs[serviceName] = &project.ServiceConfig{
+	for _, serviceName := range p.ServiceConfigs.Keys() {
+		serviceConfig, _ := p.ServiceConfigs.Get(serviceName)
+		p.ServiceConfigs.Add(serviceName, &composeConfig.ServiceConfig{
 			Image:  serviceConfig.Image,
 			Labels: serviceConfig.Labels,
-		}
-
+		})
 	}
 
 	return p.Pull()
