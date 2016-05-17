@@ -6,6 +6,7 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/storage/cache"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
+	"github.com/docker/libtrust"
 )
 
 // registry is the top-level implementation of Registry for use in the storage
@@ -17,6 +18,8 @@ type registry struct {
 	blobDescriptorCacheProvider cache.BlobDescriptorCacheProvider
 	deleteEnabled               bool
 	resumableDigestEnabled      bool
+	schema1SignaturesEnabled    bool
+	schema1SigningKey           libtrust.PrivateKey
 }
 
 // RegistryOption is the type used for functional options for NewRegistry.
@@ -41,6 +44,24 @@ func EnableDelete(registry *registry) error {
 func DisableDigestResumption(registry *registry) error {
 	registry.resumableDigestEnabled = false
 	return nil
+}
+
+// DisableSchema1Signatures is a functional option for NewRegistry. It disables
+// signature storage and ensures all schema1 manifests will only be returned
+// with a signature from a provided signing key.
+func DisableSchema1Signatures(registry *registry) error {
+	registry.schema1SignaturesEnabled = false
+	return nil
+}
+
+// Schema1SigningKey returns a functional option for NewRegistry. It sets the
+// signing key for adding a signature to all schema1 manifests. This should be
+// used in conjunction with disabling signature store.
+func Schema1SigningKey(key libtrust.PrivateKey) RegistryOption {
+	return func(registry *registry) error {
+		registry.schema1SigningKey = key
+		return nil
+	}
 }
 
 // BlobDescriptorCacheProvider returns a functional option for
@@ -85,8 +106,9 @@ func NewRegistry(ctx context.Context, driver storagedriver.StorageDriver, option
 			statter: statter,
 			pathFn:  bs.path,
 		},
-		statter:                statter,
-		resumableDigestEnabled: true,
+		statter:                  statter,
+		resumableDigestEnabled:   true,
+		schema1SignaturesEnabled: true,
 	}
 
 	for _, option := range options {
@@ -125,6 +147,14 @@ func (reg *registry) Repository(ctx context.Context, canonicalName reference.Nam
 	}, nil
 }
 
+func (reg *registry) Blobs() distribution.BlobEnumerator {
+	return reg.blobStore
+}
+
+func (reg *registry) BlobStatter() distribution.BlobStatter {
+	return reg.statter
+}
+
 // repository provides name-scoped access to various services.
 type repository struct {
 	*registry
@@ -134,7 +164,7 @@ type repository struct {
 }
 
 // Name returns the name of the repository.
-func (repo *repository) Name() reference.Named {
+func (repo *repository) Named() reference.Named {
 	return repo.name
 }
 
@@ -158,6 +188,8 @@ func (repo *repository) Manifests(ctx context.Context, options ...distribution.M
 		blobLinkPath,
 	}
 
+	manifestDirectoryPathSpec := manifestRevisionsPathSpec{name: repo.name.Name()}
+
 	blobStore := &linkedBlobStore{
 		ctx:           ctx,
 		blobStore:     repo.blobStore,
@@ -171,7 +203,8 @@ func (repo *repository) Manifests(ctx context.Context, options ...distribution.M
 
 		// TODO(stevvooe): linkPath limits this blob store to only
 		// manifests. This instance cannot be used for blob checks.
-		linkPathFns: manifestLinkPathFns,
+		linkPathFns:           manifestLinkPathFns,
+		linkDirectoryPathSpec: manifestDirectoryPathSpec,
 	}
 
 	ms := &manifestStore{

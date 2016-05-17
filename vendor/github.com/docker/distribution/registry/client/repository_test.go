@@ -710,7 +710,7 @@ func TestV1ManifestFetch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manifest, err = ms.Get(ctx, dgst, WithTag("latest"))
+	manifest, err = ms.Get(ctx, dgst, distribution.WithTag("latest"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -723,7 +723,7 @@ func TestV1ManifestFetch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manifest, err = ms.Get(ctx, dgst, WithTag("badcontenttype"))
+	manifest, err = ms.Get(ctx, dgst, distribution.WithTag("badcontenttype"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -761,7 +761,7 @@ func TestManifestFetchWithEtag(t *testing.T) {
 	if !ok {
 		panic("wrong type for client manifest service")
 	}
-	_, err = clientManifestService.Get(ctx, d1, WithTag("latest"), AddEtagToTag("latest", d1.String()))
+	_, err = clientManifestService.Get(ctx, d1, distribution.WithTag("latest"), AddEtagToTag("latest", d1.String()))
 	if err != distribution.ErrManifestNotModified {
 		t.Fatal(err)
 	}
@@ -815,6 +815,7 @@ func TestManifestPut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var m testutil.RequestResponseMap
 	m = append(m, testutil.RequestResponseMapping{
 		Request: testutil.Request{
@@ -827,6 +828,22 @@ func TestManifestPut(t *testing.T) {
 			Headers: http.Header(map[string][]string{
 				"Content-Length":        {"0"},
 				"Docker-Content-Digest": {dgst.String()},
+			}),
+		},
+	})
+
+	putDgst := digest.FromBytes(m1.Canonical)
+	m = append(m, testutil.RequestResponseMapping{
+		Request: testutil.Request{
+			Method: "PUT",
+			Route:  "/v2/" + repo.Name() + "/manifests/" + putDgst.String(),
+			Body:   payload,
+		},
+		Response: testutil.Response{
+			StatusCode: http.StatusAccepted,
+			Headers: http.Header(map[string][]string{
+				"Content-Length":        {"0"},
+				"Docker-Content-Digest": {putDgst.String()},
 			}),
 		},
 	})
@@ -844,7 +861,11 @@ func TestManifestPut(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := ms.Put(ctx, m1, WithTag(m1.Tag)); err != nil {
+	if _, err := ms.Put(ctx, m1, distribution.WithTag(m1.Tag)); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := ms.Put(ctx, m1); err != nil {
 		t.Fatal(err)
 	}
 
