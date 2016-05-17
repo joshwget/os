@@ -17,58 +17,6 @@ type jsonto struct {
 	Elt3 int
 }
 
-func TestInParallel(t *testing.T) {
-	size := 5
-	booleanMap := make(map[int]bool, size+1)
-	tasks := InParallel{}
-	for i := 0; i < size; i++ {
-		task := func(index int) func() error {
-			return func() error {
-				booleanMap[index] = true
-				return nil
-			}
-		}(i)
-		tasks.Add(task)
-	}
-	err := tasks.Wait()
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Make sure every value is true
-	for _, value := range booleanMap {
-		if !value {
-			t.Fatalf("booleanMap expected to contain only true values, got at least one false")
-		}
-	}
-}
-
-func TestInParallelError(t *testing.T) {
-	size := 5
-	booleanMap := make(map[int]bool, size+1)
-	tasks := InParallel{}
-	for i := 0; i < size; i++ {
-		task := func(index int) func() error {
-			return func() error {
-				booleanMap[index] = true
-				if index%2 == 0 {
-					return fmt.Errorf("Error with %v", index)
-				}
-				return nil
-			}
-		}(i)
-		tasks.Add(task)
-	}
-	err := tasks.Wait()
-	if err == nil {
-		t.Fatalf("Expected an error on Wait, got nothing.")
-	}
-	for key, value := range booleanMap {
-		if key%2 != 0 && !value {
-			t.Fatalf("booleanMap expected to contain true values on odd number, got %v", booleanMap)
-		}
-	}
-}
-
 func TestConvertByJSON(t *testing.T) {
 	valids := []struct {
 		src      jsonfrom
@@ -218,28 +166,6 @@ func TestFilterString(t *testing.T) {
 		actual := FilterString(data.value)
 		if actual != data.expected {
 			t.Fatalf("Expected '%v' for %v, got '%v'", data.expected, data.value, actual)
-		}
-	}
-}
-
-func TestLabelFilter(t *testing.T) {
-	filters := []struct {
-		key      string
-		value    string
-		expected string
-	}{
-		{
-			"key", "value", `{"label":["key=value"]}`,
-		}, {
-			"key", "", `{"label":["key="]}`,
-		}, {
-			"", "", `{"label":["="]}`,
-		},
-	}
-	for _, filter := range filters {
-		actual := LabelFilterString(filter.key, filter.value)
-		if actual != filter.expected {
-			t.Fatalf("Expected '%s for key=%s and value=%s, got %s", filter.expected, filter.key, filter.value, actual)
 		}
 	}
 }
