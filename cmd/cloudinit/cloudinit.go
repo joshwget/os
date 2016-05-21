@@ -25,6 +25,7 @@ import (
 	"time"
 
 	yaml "github.com/cloudfoundry-incubator/candiedyaml"
+	"github.com/docker/libnetwork/resolvconf"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/coreos-cloudinit/config"
@@ -40,6 +41,7 @@ import (
 	"github.com/coreos/coreos-cloudinit/system"
 	"github.com/rancher/netconf"
 	rancherConfig "github.com/rancher/os/config"
+	"github.com/rancher/os/hostname"
 )
 
 const (
@@ -201,6 +203,28 @@ func Main() {
 		err := saveCloudConfig()
 		if err != nil {
 			log.WithFields(log.Fields{"err": err}).Error("Failed to save cloud-config")
+		}
+
+		cfg, err := rancherConfig.LoadConfig()
+		if err != nil {
+			log.Error(err)
+		}
+
+		nameservers := cfg.Rancher.DefaultNetwork.Dns.Nameservers
+		search := cfg.Rancher.DefaultNetwork.Dns.Search
+		if _, err := resolvconf.Build("/etc/resolv.conf", nameservers, search, nil); err != nil {
+			log.Error(err)
+		}
+
+		nameservers = cfg.Rancher.Network.Dns.Nameservers
+		search = cfg.Rancher.Network.Dns.Search
+		//userSetDns := len(nameservers) > 0 || len(search) > 0
+		userSetHostname := cfg.Hostname != ""
+
+		if userSetHostname {
+			if err := hostname.SetHostnameFromCloudConfig(cfg); err != nil {
+				log.Error(err)
+			}
 		}
 	}
 

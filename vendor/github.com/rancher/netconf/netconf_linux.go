@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/flynn/go-shlex"
@@ -23,7 +24,7 @@ const (
 )
 
 var (
-	defaultDhcpArgs = []string{"dhcpcd", "-MA4"}
+	defaultDhcpArgs = []string{"dhcpcd", "-A4"}
 )
 
 func createInterfaces(netCfg *NetworkConfig) {
@@ -182,13 +183,15 @@ func ApplyNetworkConfigs(netCfg *NetworkConfig) error {
 	return err
 }
 
-func RunDhcp(netCfg *NetworkConfig, setHostname, setDns bool) error {
+func RunDhcp(netCfg *NetworkConfig) error {
+	populateDefault(netCfg)
+
 	links, err := netlink.LinkList()
 	if err != nil {
 		return err
 	}
 
-	dhcpLinks := map[string]string{}
+	dhcpLinks := dhcpLinks(netCfg, links)
 	for _, link := range links {
 		if match, ok := findMatch(link, netCfg); ok && match.DHCP {
 			dhcpLinks[link.Attrs().Name] = match.DHCPArgs
@@ -200,7 +203,7 @@ func RunDhcp(netCfg *NetworkConfig, setHostname, setDns bool) error {
 	for iface, args := range dhcpLinks {
 		wg.Add(1)
 		go func(iface, args string) {
-			runDhcp(netCfg, iface, args, setHostname, setDns)
+			runDhcp(netCfg, iface, args)
 			wg.Done()
 		}(iface, args)
 	}
@@ -209,7 +212,17 @@ func RunDhcp(netCfg *NetworkConfig, setHostname, setDns bool) error {
 	return err
 }
 
-func runDhcp(netCfg *NetworkConfig, iface string, argstr string, setHostname, setDns bool) {
+func dhcpLinks(netCfg *NetworkConfig, links []netlink.Link) map[string]string {
+	dhcpLinks := map[string]string{}
+	for _, link := range links {
+		if match, ok := findMatch(link, netCfg); ok && match.DHCP {
+			dhcpLinks[link.Attrs().Name] = match.DHCPArgs
+		}
+	}
+	return dhcpLinks
+}
+
+func runDhcp(netCfg *NetworkConfig, iface string, argstr string) {
 	log.Infof("Running DHCP on %s", iface)
 	args := []string{}
 	if argstr != "" {
@@ -223,14 +236,6 @@ func runDhcp(netCfg *NetworkConfig, iface string, argstr string, setHostname, se
 		args = defaultDhcpArgs
 	}
 
-	if setHostname {
-		args = append(args, "-e", "force_hostname=true")
-	}
-
-	if !setDns {
-		args = append(args, "--nohook", "resolv.conf")
-	}
-
 	args = append(args, iface)
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdout = os.Stdout
@@ -238,6 +243,32 @@ func runDhcp(netCfg *NetworkConfig, iface string, argstr string, setHostname, se
 	if err := cmd.Run(); err != nil {
 		log.Error(err)
 	}
+}
+
+func WaitForIps(netCfg *NetworkConfig) error {
+	links, err := netlink.LinkList()
+	if err != nil {
+		return err
+	}
+
+	for dhcpLinks := dhcpLinks(netCfg, links); len(dhcpLinks) > 0; {
+		time.Sleep(100 * time.Millisecond)
+
+		addrs, err := netlink.AddrList(nil, netlink.FAMILY_ALL)
+		if err != nil {
+			return err
+		}
+
+		for _, addr := range addrs {
+			if _, ok := dhcpLinks[addr.Label]; ok {
+				delete(dhcpLinks, addr.Label)
+			}
+		}
+
+		log.Info(dhcpLinks)
+	}
+
+	return nil
 }
 
 func linkUp(link netlink.Link, netConf InterfaceConfig) error {

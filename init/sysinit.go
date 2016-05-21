@@ -102,7 +102,16 @@ func SysInit() error {
 			if err != nil {
 				return cfg, err
 			}
+<<<<<<< Updated upstream
 			return cfg, p.Up()
+=======
+			p.Up(options.Up{
+				Create: options.Create{
+					NoRecreate: true,
+				},
+			})
+			return cfg, p.Log(true)
+>>>>>>> Stashed changes
 		},
 		func(cfg *config.CloudConfig) (*config.CloudConfig, error) {
 			syscall.Sync()

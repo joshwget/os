@@ -207,9 +207,13 @@ func (c *Container) Up(imageName string) error {
 	var err error
 
 	defer func() {
+<<<<<<< Updated upstream
 		if err == nil && c.service.context.Log {
 			go c.Log()
 		}
+=======
+		go c.Log(true)
+>>>>>>> Stashed changes
 	}()
 
 	container, err := c.Create(imageName)
