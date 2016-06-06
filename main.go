@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/os/cmd/network"
 	"github.com/rancher/os/cmd/power"
 	"github.com/rancher/os/cmd/respawn"
+	"github.com/rancher/os/cmd/switchconsole"
 	"github.com/rancher/os/cmd/sysinit"
 	"github.com/rancher/os/cmd/systemdocker"
 	"github.com/rancher/os/cmd/userdocker"
@@ -53,6 +54,7 @@ func main() {
 	registerCmd("/usr/bin/cloud-init", cloudinit.Main)
 	registerCmd("/usr/sbin/netconf", network.Main)
 	registerCmd("/usr/sbin/wait-for-docker", wait.Main)
+        registerCmd("/usr/bin/switch-console", switchconsole.Main)
 
 	if !reexec.Init() {
 		reexec.Register(os.Args[0], control.Main)
