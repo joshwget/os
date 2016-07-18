@@ -28,7 +28,6 @@ import (
 	"time"
 
 	yaml "github.com/cloudfoundry-incubator/candiedyaml"
-	"github.com/docker/docker/pkg/mount"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/coreos-cloudinit/config"
@@ -226,14 +225,15 @@ func executeCloudConfig() error {
 		device := util.ResolveDevice(configMount[0])
 		if configMount[2] == "swap" {
 			cmd := exec.Command("swapon", device)
-			err := cmd.Run()
-			if err != nil {
+			if err := cmd.Run(); err != nil {
 				log.Errorf("Unable to swapon %s: %v", device, err)
 			}
 			continue
 		}
-		if err := mount.Mount(device, configMount[1], configMount[2], configMount[3]); err != nil {
-			log.Errorf("Unable to mount %s: %v", configMount[1], err)
+
+		cmd := exec.Command("mount", device, configMount[1], "-t", configMount[2])
+		if err := cmd.Run(); err != nil {
+			log.Errorf("Unable to mount %s: %v", device, err)
 		}
 	}
 

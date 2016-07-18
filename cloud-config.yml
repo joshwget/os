@@ -1,0 +1,3 @@
+#cloud-config
+mounts:
+- [/dev/vdb, /home/rancher/a, auto, ""]

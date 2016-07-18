@@ -3,9 +3,9 @@ set -e
 
 cd $(dirname $0)
 
-if [ "$ROOTFS" != "0" ]; then
-    ./package-rootfs
-fi
+#if [ "$ROOTFS" != "0" ]; then
+#    ./package-rootfs
+#fi
 ./package-initrd
 ./package-iso
 if [ "$INSTALLER" != "0" ]; then
