@@ -31,7 +31,44 @@ const (
 	userDocker              = "user-docker"
 )
 
+func copyFileContents(src, dst string) (err error) {
+	in, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer func() {
+		cerr := out.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return
+	}
+	err = out.Sync()
+	return
+}
+
 func Main() {
+	files, err := ioutil.ReadDir("/docker")
+	if err != nil {
+		log.Fatal("$", err)
+	}
+
+	for _, file := range files {
+		if err := copyFileContents(file.Name(), "/var/lib/rancher/docker"+file.Name()); err != nil {
+			log.Fatal(err)
+		}
+		if err := os.Chmod("/var/lib/rancher/docker"+file.Name(), 0751); err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	cfg := config.LoadConfig()
 
 	execID, resp, err := startDocker(cfg)

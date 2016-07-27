@@ -71,7 +71,7 @@ rancher:
     - configdrive:/media/config-2
   repositories:
     core:
-      url: {{.OS_SERVICES_REPO}}/{{.REPO_VERSION}}
+      url: https://raw.githubusercontent.com/joshwget/os-services/dockers
   state:
     fstype: auto
     dev: LABEL=RANCHER_STATE
@@ -292,6 +292,7 @@ rancher:
       - /usr/share/ros:/usr/share/ros
       - /var/lib/rancher/cache:/var/lib/rancher/cache
       - /var/lib/rancher/conf:/var/lib/rancher/conf
+      - /var/lib/rancher/docker:/var/lib/rancher/docker
       - /var/lib/rancher:/var/lib/rancher
       - /var/log:/var/log
       - /var/run:/var/run
@@ -332,8 +333,7 @@ rancher:
       - /home:/home
       - /opt:/opt
     docker:
-      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
-      command: /usr/bin/user-docker
+      image: {{.OS_REPO}}/os-docker1112:{{.VERSION}}{{.SUFFIX}}
       environment:
       - HTTP_PROXY
       - HTTPS_PROXY

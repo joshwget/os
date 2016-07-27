@@ -11,7 +11,7 @@ done
 
 DOCKER_BIN=$(which docker) || DOCKER_BIN=/usr/bin/docker
 
-for i in /opt/bin /usr/local/bin; do
+for i in /var/lib/rancher/docker /opt/bin /usr/local/bin; do
     if [ -x ${i}/docker ]; then
         PATH=${i}:$PATH
         DOCKER_BIN=${i}/docker

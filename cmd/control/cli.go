@@ -46,6 +46,12 @@ func Main() {
 			Action:          devAction,
 		},
 		{
+			Name:        "docker",
+			Usage:       "Docker engine commands",
+			HideHelp:    true,
+			Subcommands: dockerSubcommands(),
+		},
+		{
 			Name:            "env",
 			ShortName:       "e",
 			Usage:           "env command",
