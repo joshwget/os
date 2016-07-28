@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e -x
 
+export PATH=/var/lib/rancher/docker:$PATH
+
 setup_ssh()
 {
     for i in rsa dsa ecdsa ed25519; do

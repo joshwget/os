@@ -1,3 +1,3 @@
 FROM scratch
-COPY docker /
+COPY docker /docker
 CMD ["/usr/bin/user-docker"]

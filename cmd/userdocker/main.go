@@ -1,6 +1,7 @@
 package userdocker
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -61,10 +62,14 @@ func Main() {
 	}
 
 	for _, file := range files {
-		if err := copyFileContents(file.Name(), "/var/lib/rancher/docker"+file.Name()); err != nil {
+		fmt.Println(file.Name())
+	}
+
+	for _, file := range files {
+		if err := copyFileContents("/docker/"+file.Name(), "/var/lib/rancher/docker/"+file.Name()); err != nil {
 			log.Fatal(err)
 		}
-		if err := os.Chmod("/var/lib/rancher/docker"+file.Name(), 0751); err != nil {
+		if err := os.Chmod("/var/lib/rancher/docker/"+file.Name(), 0751); err != nil {
 			log.Fatal(err)
 		}
 	}

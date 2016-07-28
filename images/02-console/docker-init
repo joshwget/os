@@ -12,6 +12,11 @@ done
 DOCKER_BIN=$(which docker) || DOCKER_BIN=/usr/bin/docker
 
 for i in /var/lib/rancher/docker /opt/bin /usr/local/bin; do
+    if [ -x ${i}/dockerd ]; then
+        PATH=${i}:$PATH
+        DOCKER_BIN=${i}/dockerd
+        break
+    fi
     if [ -x ${i}/docker ]; then
         PATH=${i}:$PATH
         DOCKER_BIN=${i}/docker
@@ -25,5 +30,7 @@ mount --make-shared /run
 if [ "$(grep '/var/lib/docker /var/lib/docker ' /proc/self/mountinfo | awk '{print $9}')" = "rootfs" ]; then
     export DOCKER_RAMDISK=1
 fi
+
+echo $PATH
 
 exec /usr/bin/dockerlaunch $DOCKER_BIN "$@" $DOCKER_OPTS >>/var/log/docker.log 2>&1
