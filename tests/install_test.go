@@ -7,8 +7,7 @@ import (
 )
 
 func (s *QemuSuite) TestInstall(c *C) {
-	err := s.RunQemu("--no-format")
-	c.Assert(err, IsNil)
+	s.RunQemu(c, "--no-format")
 
 	s.LoadInstallerImage(c)
 

@@ -3,8 +3,7 @@ package integration
 import . "gopkg.in/check.v1"
 
 func (s *QemuSuite) TestCustomDockerInPersistentConsole(c *C) {
-	err := s.RunQemu("--cloud-config", "./tests/assets/test_05/cloud-config.yml")
-	c.Assert(err, IsNil)
+	s.RunQemu(c, "--cloud-config", "./tests/assets/test_05/cloud-config.yml")
 
 	s.CheckCall(c, "curl", "-Lfo", "./docker", DockerUrl)
 	s.CheckCall(c, "chmod", "+x", "/home/rancher/docker")
