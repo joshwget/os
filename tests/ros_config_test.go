@@ -3,12 +3,9 @@ package integration
 import . "gopkg.in/check.v1"
 
 func (s *QemuSuite) TestRosConfig(c *C) {
-	err := s.RunQemu("--cloud-config", "./tests/assets/test_14/cloud-config.yml")
-	c.Assert(err, IsNil)
+	s.RunQemu(c, "--cloud-config", "./tests/assets/test_14/cloud-config.yml")
 
 	s.CheckCall(c, `
-set -x -e
-
 if [ "$(sudo ros config get hostname)" == "hostname3
  " ]; then
     sudo ros config get hostname
@@ -23,8 +20,6 @@ if [ "$(sudo ros config get hostname)" == "rancher-test
  fi`)
 
 	s.CheckCall(c, `
-set -x -e
-
 if [ "$(sudo ros config get rancher.log)" == "true
  " ]; then
     sudo ros config get rancher.log
@@ -52,8 +47,6 @@ if [ "$(sudo ros config get rancher.debug)" == "true
 fi`)
 
 	s.CheckCall(c, `
-set -x -e
-
 sudo ros config set rancher.network.dns.search '[a,b]'
 if [ "$(sudo ros config get rancher.network.dns.search)" == "- a
  - b
@@ -71,8 +64,6 @@ if [ "$(sudo ros config get rancher.network.dns.search)" == "[]
  fi`)
 
 	s.CheckCall(c, `
-set -x -e
-
 if sudo ros config export | grep "PRIVATE KEY"; then
     exit 1
 fi

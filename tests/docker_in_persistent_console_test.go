@@ -7,11 +7,9 @@ import (
 )
 
 func (s *QemuSuite) TestRebootWithContainerRunning(c *C) {
-	err := s.RunQemu("--cloud-config", "./tests/assets/test_03/cloud-config.yml")
-	c.Assert(err, IsNil)
+	s.RunQemu(c, "--cloud-config", "./tests/assets/test_03/cloud-config.yml")
 
 	s.CheckCall(c, fmt.Sprintf(`
-set -e -x
 docker run -d --restart=always %s`, NginxImage))
 
 	s.Reboot(c)

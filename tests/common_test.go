@@ -47,7 +47,7 @@ func (s *QemuSuite) TearDownTest(c *C) {
 	time.Sleep(time.Millisecond * 1000)
 }
 
-func (s *QemuSuite) RunQemu(additionalArgs ...string) error {
+func (s *QemuSuite) RunQemu(c *C, additionalArgs ...string) {
 	runArgs := []string{
 		"--qemu",
 		"--no-rebuild",
@@ -59,20 +59,15 @@ func (s *QemuSuite) RunQemu(additionalArgs ...string) error {
 	s.qemuCmd = exec.Command(s.runCommand, runArgs...)
 	s.qemuCmd.Stdout = os.Stdout
 	s.qemuCmd.Stderr = os.Stderr
-	if err := s.qemuCmd.Start(); err != nil {
-		return err
-	}
+        c.Assert(s.qemuCmd.Start(), IsNil)
 
-	return s.WaitForSSH()
+	c.Assert(s.WaitForSSH(), IsNil)
 }
 
 func (s *QemuSuite) WaitForSSH() error {
 	sshArgs := []string{
 		"--qemu",
-		"docker",
-		"version",
-		">/dev/null",
-		"2>&1",
+		"true",
 	}
 
 	var err error
@@ -90,6 +85,7 @@ func (s *QemuSuite) WaitForSSH() error {
 func (s *QemuSuite) MakeCall(additionalArgs ...string) error {
 	sshArgs := []string{
 		"--qemu",
+                "set -ex\n",
 	}
 	sshArgs = append(sshArgs, additionalArgs...)
 
