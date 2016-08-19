@@ -140,6 +140,10 @@ func tryMountState(cfg *config.CloudConfig) error {
 		return err
 	}
 
+	if err := bootstrap2(cfg); err != nil {
+		return err
+	}
+
 	return mountState(cfg)
 }
 

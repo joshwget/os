@@ -32,6 +32,12 @@ func runBootstrapContainers(cfg *config.CloudConfig) (*config.CloudConfig, error
 	return cfg, err
 }
 
+func runBootstrapContainers2(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+	log.Info("Running Bootstrap services")
+	_, err := compose.RunServiceSet("bootstrap", cfg, cfg.Rancher.BootstrapContainers2)
+	return cfg, err
+}
+
 func startDocker(cfg *config.CloudConfig) (chan interface{}, error) {
 	launchConfig, args := getLaunchConfig(cfg, &cfg.Rancher.BootstrapDocker)
 	launchConfig.Fork = true
@@ -74,5 +80,20 @@ func bootstrap(cfg *config.CloudConfig) error {
 		loadImages,
 		runBootstrapContainers,
 		autoformat)
+	return err
+}
+
+func bootstrap2(cfg *config.CloudConfig) error {
+	log.Info("Launching Bootstrap Docker2")
+	c, err := startDocker(cfg)
+	if err != nil {
+		return err
+	}
+
+	defer stopDocker(c)
+
+	_, err = config.ChainCfgFuncs(cfg,
+		loadImages,
+		runBootstrapContainers2)
 	return err
 }
