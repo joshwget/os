@@ -11,7 +11,6 @@ import (
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/rancher/os/cmd/cloudinitexecute"
 	"github.com/rancher/os/config"
 	"github.com/rancher/os/util"
 )
@@ -29,39 +28,10 @@ type symlink struct {
 }
 
 func Main() {
-	cfg := config.LoadConfig()
-
-	if _, err := os.Stat(rancherHome); os.IsNotExist(err) {
-		if err := os.MkdirAll(rancherHome, 0755); err != nil {
-			log.Error(err)
-		}
-		if err := os.Chown(rancherHome, 1100, 1100); err != nil {
-			log.Error(err)
-		}
-	}
-
-	if _, err := os.Stat(dockerHome); os.IsNotExist(err) {
-		if err := os.MkdirAll(dockerHome, 0755); err != nil {
-			log.Error(err)
-		}
-		if err := os.Chown(dockerHome, 1101, 1101); err != nil {
-			log.Error(err)
-		}
-	}
-
 	password := config.GetCmdline("rancher.password")
 	cmd := exec.Command("chpasswd")
 	cmd.Stdin = strings.NewReader(fmt.Sprint("rancher:", password))
 	if err := cmd.Run(); err != nil {
-		log.Error(err)
-	}
-
-	cmd = exec.Command("bash", "-c", `sed -E -i 's/(rancher:.*:).*(:.*:.*:.*:.*:.*:.*)$/\1\2/' /etc/shadow`)
-	if err := cmd.Run(); err != nil {
-		log.Error(err)
-	}
-
-	if err := setupSSH(cfg); err != nil {
 		log.Error(err)
 	}
 
@@ -76,70 +46,11 @@ func Main() {
 		log.Error(err)
 	}
 
-	if err = modifySshdConfig(); err != nil {
-		log.Error(err)
-	}
-
-	if err = writeOsRelease(); err != nil {
-		log.Error(err)
-	}
-
-	for _, link := range []symlink{
-		{"/var/lib/rancher/engine/docker", "/usr/bin/docker"},
-		{"/var/lib/rancher/engine/docker-containerd", "/usr/bin/docker-containerd"},
-		{"/var/lib/rancher/engine/docker-containerd-ctr", "/usr/bin/docker-containerd-ctr"},
-		{"/var/lib/rancher/engine/docker-containerd-shim", "/usr/bin/docker-containerd-shim"},
-		{"/var/lib/rancher/engine/dockerd", "/usr/bin/dockerd"},
-		{"/var/lib/rancher/engine/docker-runc", "/usr/bin/docker-runc"},
-	} {
-		syscall.Unlink(link.newname)
-		if err = os.Symlink(link.oldname, link.newname); err != nil {
-			log.Error(err)
-		}
-	}
-
-	cmd = exec.Command("bash", "-c", `echo 'RancherOS \n \l' > /etc/issue`)
-	if err = cmd.Run(); err != nil {
-		log.Error(err)
-	}
-
-	cmd = exec.Command("bash", "-c", `echo $(/sbin/ifconfig | grep -B1 "inet addr" |awk '{ if ( $1 == "inet" ) { print $2 } else if ( $2 == "Link" ) { printf "%s:" ,$1 } }' |awk -F: '{ print $1 ": " $3}') >> /etc/issue`)
-	if err = cmd.Run(); err != nil {
-		log.Error(err)
-	}
-
-	cloudinitexecute.ApplyConsole(cfg)
-
-	if util.ExistsAndExecutable(config.CloudConfigScriptFile) {
-		cmd := exec.Command(config.CloudConfigScriptFile)
-		if err = cmd.Run(); err != nil {
-			log.Error(err)
-		}
-	}
-
-	if util.ExistsAndExecutable(startScript) {
-		cmd := exec.Command(startScript)
-		if err = cmd.Run(); err != nil {
-			log.Error(err)
-		}
-	}
-
-	if util.ExistsAndExecutable("/etc/rc.local") {
-		cmd := exec.Command("/etc/rc.local")
-		if err = cmd.Run(); err != nil {
-			log.Error(err)
-		}
-	}
-
 	os.Setenv("TERM", "linux")
 
 	respawnBinPath, err := exec.LookPath("respawn")
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	if err := ioutil.WriteFile(consoleDone, []byte(cfg.Rancher.Console), 0644); err != nil {
-		log.Error(err)
 	}
 
 	log.Fatal(syscall.Exec(respawnBinPath, []string{"respawn", "-f", "/etc/respawn.conf"}, os.Environ()))

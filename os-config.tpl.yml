@@ -43,17 +43,63 @@ rancher:
       - /lib/firmware:/lib/firmware
       - /usr/bin/ros:/usr/bin/ros:ro
   bootstrap2:
-    cloud-init:
-      image: {{.OS_REPO}}/os-cloudinit:{{.VERSION}}{{.SUFFIX}}
+    #network:
+    #  image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
+    #  command: netconf
+    #  labels:
+    #    io.rancher.os.scope: system
+    #  net: host
+    #  uts: host
+    #  pid: host
+    #  privileged: true
+    #  volumes:
+    #  - /dev:/host/dev
+    #  - /lib/modules:/lib/modules
+    #  - /lib/firmware:/lib/firmware
+    #  - /usr/bin/ros:/usr/bin/ros:ro
+    #  - /usr/share/ros:/usr/share/ros:ro
+    #  - /var/lib/rancher:/var/lib/rancher
+    #  - /var/lib/rancher/conf:/var/lib/rancher/conf
+    #  - /usr/bin/ros:/usr/bin/cloud-init-save
+    #  - /usr/bin/ros:/usr/bin/netconf
+    #cloud-init:
+    #  image: {{.OS_REPO}}/os-cloudinit:{{.VERSION}}{{.SUFFIX}}
+    #  labels:
+    #    io.rancher.os.detach: "false"
+    #    io.rancher.os.reloadconfig: "true"
+    #    io.rancher.os.scope: system
+    #    io.rancher.os.after: con
+    #  net: host
+    #  uts: host
+    #  privileged: true
+    #  volumes:
+    #  - /dev:/host/dev
+    #  - /lib/modules:/lib/modules
+    #  - /lib/firmware:/lib/firmware
+    #  - /usr/bin/ros:/usr/bin/ros:ro
+    #  - /usr/share/ros:/usr/share/ros:ro
+    #  - /var/lib/rancher:/var/lib/rancher
+    #  - /var/lib/rancher/conf:/var/lib/rancher/conf
+    #  - /usr/bin/ros:/usr/bin/cloud-init-save
+    con:
+      image: {{.OS_REPO}}/os-console:{{.VERSION}}{{.SUFFIX}}
+      command: console
       labels:
-        io.rancher.os.detach: "false"
-        io.rancher.os.reloadconfig: "true"
         io.rancher.os.scope: system
-        io.rancher.os.after: preload-system-images
+        io.rancher.os.after: network
+        io.docker.compose.rebuild: always
+        io.rancher.os.console: default
+      log_driver: json-file
       net: host
       uts: host
+      pid: host
+      ipc: host
       privileged: true
+      restart: always
       volumes:
+      - /usr/bin/iptables:/sbin/iptables:ro
+      - /media:/media:shared
+      - /mnt:/mnt:shared
       - /dev:/host/dev
       - /lib/modules:/lib/modules
       - /lib/firmware:/lib/firmware
@@ -92,7 +138,7 @@ rancher:
   console: default
   cloud_init:
     datasources:
-    - configdrive:/media/config-2
+    - url:https://gist.githubusercontent.com/joshwget/03b10971d53c7f9d8de3bd8e27466052/raw/4a5d14d39b8020588cbc4ad648853c8775d23987/gistfile1.txt
   repositories:
     core:
       url: {{.OS_SERVICES_REPO}}/{{.REPO_VERSION}}
@@ -348,24 +394,6 @@ rancher:
       volumes:
       - /home:/home
       - /opt:/opt
-    docker:
-      image: {{.OS_REPO}}/os-docker:1.12.0{{.SUFFIX}}
-      command: /usr/bin/user-docker
-      environment:
-      - HTTP_PROXY
-      - HTTPS_PROXY
-      - NO_PROXY
-      labels:
-        io.rancher.os.scope: system
-        io.rancher.os.after: console
-      net: host
-      pid: host
-      ipc: host
-      uts: host
-      privileged: true
-      restart: always
-      volumes_from:
-      - all-volumes
   system_docker:
     exec: true
     args: [daemon, --log-opt, max-size=25m, --log-opt, max-file=2, -s, overlay,
