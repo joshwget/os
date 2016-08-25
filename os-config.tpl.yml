@@ -82,9 +82,10 @@ rancher:
     #  - /var/lib/rancher/conf:/var/lib/rancher/conf
     #  - /usr/bin/ros:/usr/bin/cloud-init-save
     con:
-      image: {{.OS_REPO}}/os-console:{{.VERSION}}{{.SUFFIX}}
-      command: console
+      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
+      command: /usr/bin/console2.sh
       labels:
+        io.rancher.os.detach: "false"
         io.rancher.os.scope: system
         io.rancher.os.after: network
         io.docker.compose.rebuild: always
@@ -95,11 +96,7 @@ rancher:
       pid: host
       ipc: host
       privileged: true
-      restart: always
       volumes:
-      - /usr/bin/iptables:/sbin/iptables:ro
-      - /media:/media:shared
-      - /mnt:/mnt:shared
       - /dev:/host/dev
       - /lib/modules:/lib/modules
       - /lib/firmware:/lib/firmware
@@ -108,6 +105,7 @@ rancher:
       - /var/lib/rancher:/var/lib/rancher
       - /var/lib/rancher/conf:/var/lib/rancher/conf
       - /usr/bin/ros:/usr/bin/cloud-init-save
+      - /usr/bin/ros:/usr/bin/console
   autoformat:
     autoformat:
       image: {{.OS_REPO}}/os-autoformat:{{.VERSION}}{{.SUFFIX}}

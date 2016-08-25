@@ -52,7 +52,7 @@ func RunServiceSet(name string, cfg *config.CloudConfig, configs map[string]*com
 		return nil, err
 	}
 	return p, p.Up(context.Background(), options.Up{
-		Log: cfg.Rancher.Log,
+		Log: true,
 	})
 }
 
