@@ -32,7 +32,7 @@ RUN rm /sbin/poweroff /sbin/reboot /sbin/halt && \
     adduser docker sudo && \
     echo '%sudo ALL=(ALL) ALL' >> /etc/sudoers
 COPY inputrc /etc/inputrc
-COPY growpart /usr/bin/growpart
+COPY growpart raspberry-pi-resize.sh /usr/bin/
 RUN sed -i s/"partx --update \"\$part\" \"\$dev\""/"partx --update --nr \"\$part\" \"\$dev\""/g /usr/bin/growpart && \
     sed -i -e 's/duid/clientid/g' /etc/dhcpcd.conf
 

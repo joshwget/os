@@ -76,3 +76,20 @@ func bootstrap(cfg *config.CloudConfig) error {
 		autoformat)
 	return err
 }
+
+func runRaspberryPiContainers(cfg *config.CloudConfig) error {
+	c, err := startDocker(cfg)
+	if err != nil {
+		return err
+	}
+
+	defer stopDocker(c)
+
+	_, err = config.ChainCfgFuncs(cfg,
+		loadImages,
+		func(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+			_, err = compose.RunServiceSet("raspberry-pi", cfg, cfg.Rancher.RaspberryPiServices)
+			return cfg, err
+		})
+	return err
+}

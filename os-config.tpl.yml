@@ -66,6 +66,17 @@ rancher:
       - /lib/modules:/lib/modules
       - /lib/firmware:/lib/firmware
       - /usr/bin/ros:/usr/bin/ros:ro
+  raspberry_pi_services:
+    resize:
+      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
+      command: raspberry-pi-resize.sh
+      labels:
+        io.rancher.os.detach: "false"
+        io.rancher.os.scope: system
+      log_driver: json-file
+      privileged: true
+      volumes:
+      - /usr/bin/ros:/usr/bin/ros:ro
   bootstrap_docker:
     args: [daemon, -s, overlay, -b, none, --restart=false, -g, /var/lib/system-docker,
         -G, root, -H, 'unix:///var/run/system-docker.sock', --userland-proxy=false]

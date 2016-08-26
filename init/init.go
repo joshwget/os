@@ -265,6 +265,14 @@ func RunInit() error {
 
 			return cfg, nil
 		},
+		func(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+			if cfg.Rancher.RaspberryPi {
+				if err := runRaspberryPiContainers(cfg); err != nil {
+					log.Error(err)
+				}
+			}
+			return cfg, nil
+		},
 		tryMountAndBootstrap,
 		func(cfg *config.CloudConfig) (*config.CloudConfig, error) {
 			if boot2DockerEnvironment {

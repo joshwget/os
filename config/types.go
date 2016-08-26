@@ -103,6 +103,7 @@ type RancherConfig struct {
 	Services            map[string]*composeConfig.ServiceConfigV1 `yaml:"services,omitempty"`
 	BootstrapContainers map[string]*composeConfig.ServiceConfigV1 `yaml:"bootstrap,omitempty"`
 	Autoformat          map[string]*composeConfig.ServiceConfigV1 `yaml:"autoformat,omitempty"`
+	RaspberryPiServices map[string]*composeConfig.ServiceConfigV1 `yaml:"raspberry_pi_services,omitempty"`
 	BootstrapDocker     DockerConfig                              `yaml:"bootstrap_docker,omitempty"`
 	CloudInit           CloudInit                                 `yaml:"cloud_init,omitempty"`
 	Debug               bool                                      `yaml:"debug,omitempty"`
@@ -126,6 +127,7 @@ type RancherConfig struct {
 	ResizeDevice        string                                    `yaml:"resize_device,omitempty"`
 	Sysctl              map[string]string                         `yaml:"sysctl,omitempty"`
 	RestartServices     []string                                  `yaml:"restart_services,omitempty"`
+	RaspberryPi         bool                                      `yaml:"raspberry_pi,omitempty"`
 }
 
 type UpgradeConfig struct {
