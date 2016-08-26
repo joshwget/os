@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-fdisk /dev/mmcblk0 <<EOF
+fdisk /dev/mmcblk0 <<EOF || true
 d
 
 n
@@ -15,4 +15,4 @@ EOF
 partx --update /dev/mmcblk0
 partx --update /dev/mmcblk0p2
 
-resize2fs /dev/mmvblk0p2
+resize2fs /dev/mmcblk0p2
