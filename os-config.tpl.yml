@@ -43,51 +43,13 @@ rancher:
       - /lib/firmware:/lib/firmware
       - /usr/bin/ros:/usr/bin/ros:ro
   bootstrap2:
-    #network:
-    #  image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
-    #  command: netconf
-    #  labels:
-    #    io.rancher.os.scope: system
-    #  net: host
-    #  uts: host
-    #  pid: host
-    #  privileged: true
-    #  volumes:
-    #  - /dev:/host/dev
-    #  - /lib/modules:/lib/modules
-    #  - /lib/firmware:/lib/firmware
-    #  - /usr/bin/ros:/usr/bin/ros:ro
-    #  - /usr/share/ros:/usr/share/ros:ro
-    #  - /var/lib/rancher:/var/lib/rancher
-    #  - /var/lib/rancher/conf:/var/lib/rancher/conf
-    #  - /usr/bin/ros:/usr/bin/cloud-init-save
-    #  - /usr/bin/ros:/usr/bin/netconf
-    #cloud-init:
-    #  image: {{.OS_REPO}}/os-cloudinit:{{.VERSION}}{{.SUFFIX}}
-    #  labels:
-    #    io.rancher.os.detach: "false"
-    #    io.rancher.os.reloadconfig: "true"
-    #    io.rancher.os.scope: system
-    #    io.rancher.os.after: con
-    #  net: host
-    #  uts: host
-    #  privileged: true
-    #  volumes:
-    #  - /dev:/host/dev
-    #  - /lib/modules:/lib/modules
-    #  - /lib/firmware:/lib/firmware
-    #  - /usr/bin/ros:/usr/bin/ros:ro
-    #  - /usr/share/ros:/usr/share/ros:ro
-    #  - /var/lib/rancher:/var/lib/rancher
-    #  - /var/lib/rancher/conf:/var/lib/rancher/conf
-    #  - /usr/bin/ros:/usr/bin/cloud-init-save
     con:
-      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
-      command: /usr/bin/console2.sh
+      image: {{.OS_REPO}}/os-console:{{.VERSION}}{{.SUFFIX}}
+      command: console
+      #command: "true"
       labels:
         io.rancher.os.detach: "false"
         io.rancher.os.scope: system
-        io.rancher.os.after: network
         io.docker.compose.rebuild: always
         io.rancher.os.console: default
       log_driver: json-file
@@ -101,10 +63,36 @@ rancher:
       - /lib/modules:/lib/modules
       - /lib/firmware:/lib/firmware
       - /usr/bin/ros:/usr/bin/ros:ro
+      - /usr/bin/ros:/usr/bin/respawn:ro
       - /usr/share/ros:/usr/share/ros:ro
       - /var/lib/rancher:/var/lib/rancher
       - /var/lib/rancher/conf:/var/lib/rancher/conf
       - /usr/bin/ros:/usr/bin/cloud-init-save
+      - /usr/bin/ros:/usr/bin/console
+    ci:
+      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
+      #command: early-cloud-init -network
+      command: "true"
+      labels:
+        io.rancher.os.detach: "false"
+        io.rancher.os.scope: system
+      log_driver: json-file
+      net: host
+      uts: host
+      pid: host
+      ipc: host
+      privileged: true
+      volumes:
+      - /dev:/host/dev
+      - /lib/modules:/lib/modules
+      - /lib/firmware:/lib/firmware
+      - /usr/bin/ros:/usr/bin/ros:ro
+      - /usr/bin/ros:/usr/bin/respawn:ro
+      - /usr/share/ros:/usr/share/ros:ro
+      - /var/lib/rancher:/var/lib/rancher
+      - /var/lib/rancher/conf:/var/lib/rancher/conf
+      - /usr/bin/ros:/usr/bin/cloud-init-save
+      - /usr/bin/ros:/usr/bin/early-cloud-init
       - /usr/bin/ros:/usr/bin/console
   autoformat:
     autoformat:
@@ -231,7 +219,7 @@ rancher:
       - /usr/bin/ros:/usr/sbin/docker-init:ro
     console:
       image: {{.OS_REPO}}/os-console:{{.VERSION}}{{.SUFFIX}}
-      command: console
+      command: /usr/bin/console2
       labels:
         io.rancher.os.scope: system
         io.rancher.os.after: network

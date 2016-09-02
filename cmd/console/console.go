@@ -6,13 +6,11 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/rancher/os/config"
-	"github.com/rancher/os/util"
 )
 
 const (
@@ -81,104 +79,5 @@ func generateRespawnConf(cmdline string) []byte {
 		respawnConf.WriteString(fmt.Sprintf(" 115200 %s\n", tty))
 	}
 
-	respawnConf.WriteString("/usr/sbin/sshd -D")
-
 	return respawnConf.Bytes()
-}
-
-func modifySshdConfig() error {
-	sshdConfig, err := ioutil.ReadFile("/etc/ssh/sshd_config")
-	if err != nil {
-		return err
-	}
-	sshdConfigString := string(sshdConfig)
-
-	for _, item := range []string{
-		"UseDNS no",
-		"PermitRootLogin no",
-		"ServerKeyBits 2048",
-		"AllowGroups docker",
-	} {
-		match, err := regexp.Match("^"+item, sshdConfig)
-		if err != nil {
-			return err
-		}
-		if !match {
-			sshdConfigString += fmt.Sprintf("%s\n", item)
-		}
-	}
-
-	return ioutil.WriteFile("/etc/ssh/sshd_config", []byte(sshdConfigString), 0644)
-}
-
-func writeOsRelease() error {
-	idLike := "busybox"
-	if osRelease, err := ioutil.ReadFile("/etc/os-release"); err == nil {
-		for _, line := range strings.Split(string(osRelease), "\n") {
-			if strings.HasPrefix(line, "ID_LIKE") {
-				split := strings.Split(line, "ID_LIKE")
-				if len(split) > 1 {
-					idLike = split[1]
-				}
-			}
-		}
-	}
-
-	return ioutil.WriteFile("/etc/os-release", []byte(fmt.Sprintf(`
-NAME="RancherOS"
-VERSION=%s
-ID=rancheros
-ID_LIKE=%s
-VERSION_ID=%s
-PRETTY_NAME="RancherOS %s"
-HOME_URL=
-SUPPORT_URL=
-BUG_REPORT_URL=
-BUILD_ID=
-`, config.VERSION, idLike, config.VERSION, config.VERSION)), 0644)
-}
-
-func setupSSH(cfg *config.CloudConfig) error {
-	for _, keyType := range []string{"rsa", "dsa", "ecdsa", "ed25519"} {
-		outputFile := fmt.Sprintf("/etc/ssh/ssh_host_%s_key", keyType)
-		outputFilePub := fmt.Sprintf("/etc/ssh/ssh_host_%s_key.pub", keyType)
-
-		if _, err := os.Stat(outputFile); err == nil {
-			continue
-		}
-
-		saved, savedExists := cfg.Rancher.Ssh.Keys[keyType]
-		pub, pubExists := cfg.Rancher.Ssh.Keys[keyType+"-pub"]
-
-		if savedExists && pubExists {
-			// TODO check permissions
-			if err := util.WriteFileAtomic(outputFile, []byte(saved), 0600); err != nil {
-				return err
-			}
-			if err := util.WriteFileAtomic(outputFilePub, []byte(pub), 0600); err != nil {
-				return err
-			}
-			continue
-		}
-
-		cmd := exec.Command("bash", "-c", fmt.Sprintf("ssh-keygen -f %s -N '' -t %s", outputFile, keyType))
-		if err := cmd.Run(); err != nil {
-			return err
-		}
-
-		savedBytes, err := ioutil.ReadFile(outputFile)
-		if err != nil {
-			return err
-		}
-
-		pubBytes, err := ioutil.ReadFile(outputFilePub)
-		if err != nil {
-			return err
-		}
-
-		config.Set(fmt.Sprintf("rancher.ssh.keys.%s", keyType), string(savedBytes))
-		config.Set(fmt.Sprintf("rancher.ssh.keys.%s-pub", keyType), string(pubBytes))
-	}
-
-	return os.MkdirAll("/var/run/sshd", 0644)
 }
