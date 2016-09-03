@@ -45,13 +45,14 @@ rancher:
   bootstrap2:
     con:
       image: {{.OS_REPO}}/os-console:{{.VERSION}}{{.SUFFIX}}
-      command: console
-      #command: "true"
+      #command: console
+      command: "true"
       labels:
         io.rancher.os.detach: "false"
         io.rancher.os.scope: system
         io.docker.compose.rebuild: always
         io.rancher.os.console: default
+        io.rancher.os.after: "net"
       log_driver: json-file
       net: host
       uts: host
@@ -69,13 +70,37 @@ rancher:
       - /var/lib/rancher/conf:/var/lib/rancher/conf
       - /usr/bin/ros:/usr/bin/cloud-init-save
       - /usr/bin/ros:/usr/bin/console
+    net:
+      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
+      command: /usr/bin/console2.sh
+      labels:
+        io.rancher.os.scope: system
+      log_driver: json-file
+      net: host
+      uts: host
+      pid: host
+      ipc: host
+      privileged: true
+      volumes:
+      - /dev:/host/dev
+      - /lib/modules:/lib/modules
+      - /lib/firmware:/lib/firmware
+      - /usr/bin/ros:/usr/bin/ros:ro
+      - /usr/bin/ros:/usr/bin/respawn:ro
+      - /usr/share/ros:/usr/share/ros:ro
+      - /var/lib/rancher:/var/lib/rancher
+      - /var/lib/rancher/conf:/var/lib/rancher/conf
+      - /usr/bin/ros:/usr/bin/cloud-init-save
+      - /usr/bin/ros:/usr/bin/early-cloud-init
+      - /usr/bin/ros:/usr/bin/console
     ci:
       image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
-      #command: early-cloud-init -network
-      command: "true"
+      command: early-cloud-init -network
+      #command: "true"
       labels:
         io.rancher.os.detach: "false"
         io.rancher.os.scope: system
+        io.rancher.os.after: "net"
       log_driver: json-file
       net: host
       uts: host
@@ -124,7 +149,7 @@ rancher:
   console: default
   cloud_init:
     datasources:
-    - url:https://gist.githubusercontent.com/joshwget/03b10971d53c7f9d8de3bd8e27466052/raw/4a5d14d39b8020588cbc4ad648853c8775d23987/gistfile1.txt
+    - url:http://ea75b253.ngrok.io/cloud-config.yml
   repositories:
     core:
       url: {{.OS_SERVICES_REPO}}/{{.REPO_VERSION}}
@@ -169,20 +194,7 @@ rancher:
       labels:
         io.rancher.os.detach: "false"
         io.rancher.os.scope: system
-        io.rancher.os.after: cloud-init
-      net: host
-      uts: host
-      privileged: true
-      volumes_from:
-      - command-volumes
-      - system-volumes
-    cloud-init:
-      image: {{.OS_REPO}}/os-cloudinit:{{.VERSION}}{{.SUFFIX}}
-      command: "true"
-      labels:
-        io.rancher.os.reloadconfig: "true"
-        io.rancher.os.scope: system
-        io.rancher.os.after: preload-system-images
+        io.rancher.os.after: ntp
       net: host
       uts: host
       privileged: true
@@ -219,10 +231,10 @@ rancher:
       - /usr/bin/ros:/usr/sbin/docker-init:ro
     console:
       image: {{.OS_REPO}}/os-console:{{.VERSION}}{{.SUFFIX}}
-      command: /usr/bin/console2
+      command: console
       labels:
         io.rancher.os.scope: system
-        io.rancher.os.after: network
+        io.rancher.os.after: cloud-init-execute
         io.docker.compose.rebuild: always
         io.rancher.os.console: default
       net: host
@@ -254,7 +266,7 @@ rancher:
       command: netconf
       labels:
         io.rancher.os.scope: system
-        io.rancher.os.after: cloud-init
+        io.rancher.os.after: udev
       net: host
       uts: host
       pid: host
@@ -267,7 +279,7 @@ rancher:
       command: ntpd --nofork -g
       labels:
         io.rancher.os.scope: system
-        io.rancher.os.after: network-pre
+        io.rancher.os.after: network
       net: host
       uts: host
       privileged: true

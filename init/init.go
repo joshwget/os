@@ -5,6 +5,7 @@ package init
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -156,6 +157,11 @@ func tryMountAndBootstrap(cfg *config.CloudConfig) (*config.CloudConfig, error) 
 		return cfg, nil
 	} else if err != nil {
 		return cfg, err
+	}
+
+	if d, err := ioutil.ReadFile(config.CloudConfigBootFile); err == nil {
+		log.Info("$$$$$$$$$$$$$$")
+		log.Info(string(d))
 	}
 
 	log.Debugf("Switching to new root at %s %s", STATE, cfg.Rancher.State.Directory)
