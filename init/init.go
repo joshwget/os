@@ -14,6 +14,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/rancher/docker-from-scratch"
+	"github.com/rancher/os/cmd/earlycloudinit"
 	"github.com/rancher/os/config"
 	"github.com/rancher/os/util"
 	"github.com/rancher/os/util/network"
@@ -141,8 +142,42 @@ func tryMountState(cfg *config.CloudConfig) error {
 		return err
 	}
 
-	if err := bootstrap2(cfg); err != nil {
-		return err
+	network := false
+	for _, datasource := range cfg.Rancher.CloudInit.Datasources {
+		if strings.HasPrefix(datasource, "url") {
+			network = true
+		}
+	}
+
+	if network {
+		if err := bootstrap2(cfg); err != nil {
+			return err
+		}
+	} else {
+
+		if err := os.MkdirAll("/media/config-2", 644); err != nil {
+			log.Error(err)
+		}
+
+		configDev := util.ResolveDevice("LABEL=config-2")
+
+		log.Info("drive", configDev)
+
+		if err := mount.Mount(configDev, "/media/config-2", "iso9660,vfat", ""); err != nil {
+			log.Error("@!", err)
+		}
+
+		if err := mount.Mount("config-2", "/media/config-2", "9p", "trans=virtio,version=9p2000.L"); err != nil {
+			log.Error("@!", err)
+		}
+
+		if err := earlycloudinit.SaveCloudConfig(); err != nil {
+			log.Error(err)
+		}
+
+		if err := syscall.Unmount("/media/config-2", 0); err != nil {
+			log.Error("##", err)
+		}
 	}
 
 	return mountState(cfg)
@@ -159,9 +194,9 @@ func tryMountAndBootstrap(cfg *config.CloudConfig) (*config.CloudConfig, error) 
 		return cfg, err
 	}
 
-	if d, err := ioutil.ReadFile(config.CloudConfigBootFile); err == nil {
-		log.Info("$$$$$$$$$$$$$$")
-		log.Info(string(d))
+	d, err := ioutil.ReadFile(config.CloudConfigBootFile)
+	if err != nil {
+		log.Error(err)
 	}
 
 	log.Debugf("Switching to new root at %s %s", STATE, cfg.Rancher.State.Directory)
@@ -169,7 +204,19 @@ func tryMountAndBootstrap(cfg *config.CloudConfig) (*config.CloudConfig, error) 
 		return cfg, err
 	}
 
-	return mountOem(cfg)
+	if cfg, err = mountOem(cfg); err != nil {
+		return nil, err
+	}
+
+	if err := os.MkdirAll(config.CloudConfigDir, os.ModeDir|0600); err != nil {
+		log.Error(err)
+	}
+
+	if err := util.WriteFileAtomic(config.CloudConfigBootFile, d, 400); err != nil {
+		log.Error(err)
+	}
+
+	return cfg, nil
 }
 
 func getLaunchConfig(cfg *config.CloudConfig, dockerCfg *config.DockerConfig) (*dockerlaunch.Config, []string) {

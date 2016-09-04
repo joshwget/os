@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -66,29 +67,31 @@ func Main() {
 
 	log.Infof("Running cloud-init-save: network=%v", network)
 
-	/*cmd := exec.Command("dhcpcd")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		log.Fatal(err)
-	}*/
-
-	for i := 0; i < 100; i++ {
-		time.Sleep(time.Millisecond * 1000)
-		net.UpdateDnsConf()
-		resp, err := http.Get("http://ea75b253.ngrok.io/cloud-config.yml")
-		if err != nil {
-			log.Error(err)
-			continue
+	if network {
+		cmd := exec.Command("dhcpcd")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			log.Fatal(err)
 		}
-		d, err := ioutil.ReadAll(resp.Body)
-		if err == nil {
-			log.Info(string(d))
-			break
+
+		for i := 0; i < 100; i++ {
+			time.Sleep(time.Millisecond * 1000)
+			net.UpdateDnsConf()
+			resp, err := http.Get("http://ea75b253.ngrok.io/cloud-config.yml")
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			d, err := ioutil.ReadAll(resp.Body)
+			if err == nil {
+				log.Info(string(d))
+				break
+			}
 		}
 	}
 
-	if err := saveCloudConfig(); err != nil {
+	if err := SaveCloudConfig(); err != nil {
 		log.Errorf("Failed to save cloud-config: %v", err)
 	}
 }
@@ -136,7 +139,7 @@ func currentDatasource() (datasource.Datasource, error) {
 	return ds, nil
 }
 
-func saveCloudConfig() error {
+func SaveCloudConfig() error {
 	userDataBytes, metadata, err := fetchUserData()
 	if err != nil {
 		return err

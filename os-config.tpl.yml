@@ -70,32 +70,8 @@ rancher:
       - /var/lib/rancher/conf:/var/lib/rancher/conf
       - /usr/bin/ros:/usr/bin/cloud-init-save
       - /usr/bin/ros:/usr/bin/console
-    net:
-      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
-      command: /usr/bin/console2.sh
-      labels:
-        io.rancher.os.scope: system
-      log_driver: json-file
-      net: host
-      uts: host
-      pid: host
-      ipc: host
-      privileged: true
-      volumes:
-      - /dev:/host/dev
-      - /lib/modules:/lib/modules
-      - /lib/firmware:/lib/firmware
-      - /usr/bin/ros:/usr/bin/ros:ro
-      - /usr/bin/ros:/usr/bin/respawn:ro
-      - /usr/share/ros:/usr/share/ros:ro
-      - /var/lib/rancher:/var/lib/rancher
-      - /var/lib/rancher/conf:/var/lib/rancher/conf
-      - /usr/bin/ros:/usr/bin/cloud-init-save
-      - /usr/bin/ros:/usr/bin/early-cloud-init
-      - /usr/bin/ros:/usr/bin/console
     ci:
-      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
-      command: early-cloud-init -network
+      image: {{.OS_REPO}}/os-cloudinit:{{.VERSION}}{{.SUFFIX}}
       #command: "true"
       labels:
         io.rancher.os.detach: "false"
@@ -174,7 +150,7 @@ rancher:
       - system-volumes
     {{end -}}
     all-volumes:
-      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
+      image: {{.OS_REPO}}/os-cloudinit:{{.VERSION}}{{.SUFFIX}}
       command: echo
       labels:
         io.rancher.os.createonly: "true"
