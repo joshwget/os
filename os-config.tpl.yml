@@ -42,6 +42,29 @@ rancher:
       - /lib/modules:/lib/modules
       - /lib/firmware:/lib/firmware
       - /usr/bin/ros:/usr/bin/ros:ro
+  cloud_init_services:
+    cloud-init:
+      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
+      command: cloud-init-save
+      labels:
+        io.rancher.os.detach: "false"
+        io.rancher.os.scope: system
+        io.rancher.os.after: "net"
+      log_driver: json-file
+      net: host
+      uts: host
+      pid: host
+      ipc: host
+      privileged: true
+      volumes:
+      - /dev:/host/dev
+      - /lib/modules:/lib/modules
+      - /lib/firmware:/lib/firmware
+      - /usr/bin/ros:/usr/bin/ros:ro
+      - /usr/share/ros:/usr/share/ros:ro
+      - /var/lib/rancher:/var/lib/rancher
+      - /var/lib/rancher/conf:/var/lib/rancher/conf
+      - /usr/bin/ros:/usr/bin/cloud-init-save
   autoformat:
     autoformat:
       image: {{.OS_REPO}}/os-autoformat:{{.VERSION}}{{.SUFFIX}}
@@ -97,7 +120,7 @@ rancher:
       - system-volumes
     {{end -}}
     all-volumes:
-      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
+      image: {{.OS_REPO}}/os-cloudinit:{{.VERSION}}{{.SUFFIX}}
       command: echo
       labels:
         io.rancher.os.createonly: "true"
@@ -111,41 +134,13 @@ rancher:
       - command-volumes
       - user-volumes
       - system-volumes
-    cloud-init:
-      image: {{.OS_REPO}}/os-cloudinit:{{.VERSION}}{{.SUFFIX}}
-      labels:
-        io.rancher.os.detach: "false"
-        io.rancher.os.reloadconfig: "true"
-        io.rancher.os.scope: system
-        io.rancher.os.after: ntp
-      net: host
-      uts: host
-      privileged: true
-      volumes_from:
-      - command-volumes
-      - system-volumes
     cloud-init-execute:
       image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
       command: cloud-init-execute -pre-console
       labels:
         io.rancher.os.detach: "false"
         io.rancher.os.scope: system
-        io.rancher.os.after: cloud-init
-      net: host
-      uts: host
-      privileged: true
-      volumes_from:
-      - command-volumes
-      - system-volumes
-    cloud-init-pre:
-      image: {{.OS_REPO}}/os-cloudinit:{{.VERSION}}{{.SUFFIX}}
-      environment:
-      - CLOUD_INIT_NETWORK=false
-      labels:
-        io.rancher.os.detach: "false"
-        io.rancher.os.reloadconfig: "true"
-        io.rancher.os.scope: system
-        io.rancher.os.after: preload-system-images
+        io.rancher.os.after: ntp
       net: host
       uts: host
       privileged: true
@@ -185,7 +180,7 @@ rancher:
       command: console
       labels:
         io.rancher.os.scope: system
-        io.rancher.os.after: network
+        io.rancher.os.after: cloud-init-execute
         io.docker.compose.rebuild: always
         io.rancher.os.console: default
       net: host
@@ -212,25 +207,13 @@ rancher:
       read_only: true
       volumes:
       - /var/lib/docker:/var/lib/docker
-    network-pre:
+    network:
       image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
       command: netconf
       labels:
         io.rancher.os.scope: system
-        io.rancher.os.after: cloud-init-pre
-      net: host
-      uts: host
-      pid: host
-      privileged: true
-      volumes_from:
-      - command-volumes
-      - system-volumes
-    network:
-      image: {{.OS_REPO}}/os-base:{{.VERSION}}{{.SUFFIX}}
-      command: netconf --stop-network-pre
-      labels:
-        io.rancher.os.scope: system
-        io.rancher.os.after: cloud-init-execute
+        io.rancher.os.after: udev
+        io.rancher.os.reloadconfig: "true"
       net: host
       uts: host
       pid: host
@@ -243,7 +226,7 @@ rancher:
       command: ntpd --nofork -g
       labels:
         io.rancher.os.scope: system
-        io.rancher.os.after: network-pre
+        io.rancher.os.after: network
       net: host
       uts: host
       privileged: true

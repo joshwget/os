@@ -5,6 +5,7 @@ package init
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/rancher/docker-from-scratch"
+	"github.com/rancher/os/cmd/cloudinitsave"
 	"github.com/rancher/os/config"
 	"github.com/rancher/os/util"
 	"github.com/rancher/os/util/network"
@@ -140,6 +142,29 @@ func tryMountState(cfg *config.CloudConfig) error {
 		return err
 	}
 
+	// TODO
+	/*network := false
+	for _, datasource := range cfg.Rancher.CloudInit.Datasources {
+		if strings.HasPrefix(datasource, "url") {
+			network = true
+		}
+	}
+
+	if network {
+		if err := runCloudInitServices(cfg); err != nil {
+			return err
+		}
+	} else {
+
+		if err := cloudinitsave.SaveCloudConfig(false); err != nil {
+			log.Error(err)
+		}
+
+		if err := syscall.Unmount("/media/config-2", 0); err != nil {
+			log.Error("##", err)
+		}
+	}*/
+
 	return mountState(cfg)
 }
 
@@ -154,12 +179,27 @@ func tryMountAndBootstrap(cfg *config.CloudConfig) (*config.CloudConfig, error) 
 		return cfg, err
 	}
 
+	return cfg, nil
+
+	/*d, err := ioutil.ReadFile(config.CloudConfigBootFile)
+	if err != nil {
+		log.Error(err)
+	}
+
 	log.Debugf("Switching to new root at %s %s", STATE, cfg.Rancher.State.Directory)
 	if err := switchRoot(STATE, cfg.Rancher.State.Directory, cfg.Rancher.RmUsr); err != nil {
 		return cfg, err
 	}
 
-	return mountOem(cfg)
+	if err := os.MkdirAll(config.CloudConfigDir, os.ModeDir|0600); err != nil {
+		log.Error(err)
+	}
+
+	if err := util.WriteFileAtomic(config.CloudConfigBootFile, d, 400); err != nil {
+		log.Error(err)
+	}
+
+	return cfg, nil*/
 }
 
 func getLaunchConfig(cfg *config.CloudConfig, dockerCfg *config.DockerConfig) (*dockerlaunch.Config, []string) {
@@ -218,6 +258,7 @@ func RunInit() error {
 	}
 
 	boot2DockerEnvironment := false
+	var cloudConfigBootFile []byte
 	initFuncs := []config.CfgFunc{
 		func(c *config.CloudConfig) (*config.CloudConfig, error) {
 			return c, dockerlaunch.PrepareFs(&mountConfig)
@@ -266,6 +307,66 @@ func RunInit() error {
 			return cfg, nil
 		},
 		tryMountAndBootstrap,
+		func(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+			if err := os.MkdirAll(config.CloudConfigDir, os.ModeDir|0600); err != nil {
+				log.Error(err)
+			}
+
+			cfg.Rancher.CloudInit.Datasources = config.LoadConfigWithPrefix(STATE).Rancher.CloudInit.Datasources
+			if err := config.Set("rancher.cloud_init.datasources", cfg.Rancher.CloudInit.Datasources); err != nil {
+				log.Error(err)
+			}
+
+			network := false
+			for _, datasource := range cfg.Rancher.CloudInit.Datasources {
+				if cloudinitsave.RequiresNetwork(datasource) {
+					network = true
+					break
+				}
+			}
+
+			if network {
+				if err := runCloudInitServices(cfg); err != nil {
+					log.Error(err)
+				}
+			} else {
+				if err := cloudinitsave.MountConfigDrive(); err != nil {
+					log.Error(err)
+				}
+				if err := cloudinitsave.SaveCloudConfig(false); err != nil {
+					log.Error(err)
+				}
+				if err := syscall.Unmount("/media/config-2", 0); err != nil {
+					log.Error(err)
+				}
+			}
+			return cfg, nil
+		},
+		func(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+			var err error
+			cloudConfigBootFile, err = ioutil.ReadFile(config.CloudConfigBootFile)
+			if err != nil {
+				log.Error(err)
+			}
+			return cfg, nil
+		},
+		func(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+			log.Debugf("Switching to new root at %s %s", STATE, cfg.Rancher.State.Directory)
+			if err := switchRoot(STATE, cfg.Rancher.State.Directory, cfg.Rancher.RmUsr); err != nil {
+				return cfg, err
+			}
+			return cfg, nil
+		},
+		mountOem,
+		func(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+			if err := os.MkdirAll(config.CloudConfigDir, os.ModeDir|0600); err != nil {
+				log.Error(err)
+			}
+			if err := util.WriteFileAtomic(config.CloudConfigBootFile, cloudConfigBootFile, 400); err != nil {
+				log.Error(err)
+			}
+			return cfg, nil
+		},
 		func(cfg *config.CloudConfig) (*config.CloudConfig, error) {
 			if boot2DockerEnvironment {
 				if err := config.Set("rancher.state.dev", cfg.Rancher.State.Dev); err != nil {

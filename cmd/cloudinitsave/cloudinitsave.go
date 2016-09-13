@@ -17,8 +17,8 @@ package cloudinitsave
 
 import (
 	"errors"
-	"flag"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +36,7 @@ import (
 	"github.com/coreos/coreos-cloudinit/datasource/proc_cmdline"
 	"github.com/coreos/coreos-cloudinit/datasource/url"
 	"github.com/coreos/coreos-cloudinit/pkg"
+	"github.com/docker/docker/pkg/mount"
 	"github.com/rancher/netconf"
 	"github.com/rancher/os/cmd/cloudinitsave/gce"
 	rancherConfig "github.com/rancher/os/config"
@@ -48,71 +49,37 @@ const (
 	datasourceTimeout     = 5 * time.Minute
 )
 
-var (
-	network bool
-	flags   *flag.FlagSet
-)
-
-func init() {
-	flags = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	flags.BoolVar(&network, "network", true, "use network based datasources")
-}
-
 func Main() {
-	flags.Parse(os.Args[1:])
+	log.Infof("Running cloud-init-save")
 
-	log.Infof("Running cloud-init-save: network=%v", network)
+	cmd := exec.Command("dhcpcd")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Fatal(err)
+	}
 
-	if err := saveCloudConfig(); err != nil {
+	if err := SaveCloudConfig(true); err != nil {
 		log.Errorf("Failed to save cloud-config: %v", err)
 	}
 }
 
-func saveFiles(cloudConfigBytes, scriptBytes []byte, metadata datasource.Metadata) error {
-	os.MkdirAll(rancherConfig.CloudConfigDir, os.ModeDir|0600)
-
-	if len(scriptBytes) > 0 {
-		log.Infof("Writing to %s", rancherConfig.CloudConfigScriptFile)
-		if err := util.WriteFileAtomic(rancherConfig.CloudConfigScriptFile, scriptBytes, 500); err != nil {
-			log.Errorf("Error while writing file %s: %v", rancherConfig.CloudConfigScriptFile, err)
-			return err
-		}
-	}
-
-	if len(cloudConfigBytes) > 0 {
-		if err := util.WriteFileAtomic(rancherConfig.CloudConfigBootFile, cloudConfigBytes, 400); err != nil {
-			return err
-		}
-		log.Infof("Written to %s:\n%s", rancherConfig.CloudConfigBootFile, string(cloudConfigBytes))
-	}
-
-	metaDataBytes, err := yaml.Marshal(metadata)
-	if err != nil {
+func MountConfigDrive() error {
+	if err := os.MkdirAll("/media/config-2", 644); err != nil {
 		return err
 	}
 
-	if err = util.WriteFileAtomic(rancherConfig.MetaDataFile, metaDataBytes, 400); err != nil {
-		return err
-	}
-	log.Infof("Written to %s:\n%s", rancherConfig.MetaDataFile, string(metaDataBytes))
+	configDev := util.ResolveDevice("LABEL=config-2")
 
-	return nil
-}
-
-func currentDatasource() (datasource.Datasource, error) {
-	cfg := rancherConfig.LoadConfig()
-
-	dss := getDatasources(cfg)
-	if len(dss) == 0 {
-		return nil, nil
+	if configDev == "" {
+		return mount.Mount("config-2", "/media/config-2", "9p", "trans=virtio,version=9p2000.L")
 	}
 
-	ds := selectDatasource(dss)
-	return ds, nil
+	return mount.Mount(configDev, "/media/config-2", "iso9660,vfat", "")
 }
 
-func saveCloudConfig() error {
-	userDataBytes, metadata, err := fetchUserData()
+func SaveCloudConfig(network bool) error {
+	userDataBytes, metadata, err := fetchUserData(network)
 	if err != nil {
 		return err
 	}
@@ -146,9 +113,68 @@ func saveCloudConfig() error {
 	return saveFiles(userDataBytes, scriptBytes, metadata)
 }
 
-func fetchUserData() ([]byte, datasource.Metadata, error) {
+func RequiresNetwork(datasource string) bool {
+	parts := strings.SplitN(datasource, ":", 2)
+	requiresNetwork, ok := map[string]bool{
+		"ec2":          true,
+		"file":         false,
+		"url":          true,
+		"cmdline":      true,
+		"configdrive":  false,
+		"digitalocean": true,
+		"gce":          true,
+		"packet":       true,
+	}[parts[0]]
+	log.Info("#", datasource, requiresNetwork)
+	return ok && requiresNetwork
+}
+
+func saveFiles(cloudConfigBytes, scriptBytes []byte, metadata datasource.Metadata) error {
+	os.MkdirAll(rancherConfig.CloudConfigDir, os.ModeDir|0600)
+
+	if len(scriptBytes) > 0 {
+		log.Infof("Writing to %s", rancherConfig.CloudConfigScriptFile)
+		if err := util.WriteFileAtomic(rancherConfig.CloudConfigScriptFile, scriptBytes, 500); err != nil {
+			log.Errorf("Error while writing file %s: %v", rancherConfig.CloudConfigScriptFile, err)
+			return err
+		}
+	}
+
+	if len(cloudConfigBytes) > 0 {
+		if err := util.WriteFileAtomic(rancherConfig.CloudConfigBootFile, cloudConfigBytes, 400); err != nil {
+			return err
+		}
+		log.Infof("Written to %s:\n%s", rancherConfig.CloudConfigBootFile, string(cloudConfigBytes))
+	}
+
+	metaDataBytes, err := yaml.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+
+	if err = util.WriteFileAtomic(rancherConfig.MetaDataFile, metaDataBytes, 400); err != nil {
+		return err
+	}
+	log.Infof("Written to %s:\n%s", rancherConfig.MetaDataFile, string(metaDataBytes))
+
+	return nil
+}
+
+func currentDatasource(network bool) (datasource.Datasource, error) {
+	cfg := rancherConfig.LoadConfig()
+
+	dss := getDatasources(cfg, network)
+	if len(dss) == 0 {
+		return nil, nil
+	}
+
+	ds := selectDatasource(dss)
+	return ds, nil
+}
+
+func fetchUserData(network bool) ([]byte, datasource.Metadata, error) {
 	var metadata datasource.Metadata
-	ds, err := currentDatasource()
+	ds, err := currentDatasource(network)
 	if err != nil || ds == nil {
 		log.Errorf("Failed to select datasource: %v", err)
 		return nil, metadata, err
@@ -170,7 +196,7 @@ func fetchUserData() ([]byte, datasource.Metadata, error) {
 
 // getDatasources creates a slice of possible Datasources for cloudinit based
 // on the different source command-line flags.
-func getDatasources(cfg *rancherConfig.CloudConfig) []datasource.Datasource {
+func getDatasources(cfg *rancherConfig.CloudConfig, network bool) []datasource.Datasource {
 	dss := make([]datasource.Datasource, 0, 5)
 
 	for _, ds := range cfg.Rancher.CloudInit.Datasources {
