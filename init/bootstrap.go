@@ -70,7 +70,7 @@ func bootstrap(cfg *config.CloudConfig) error {
 
 	_, err = config.ChainCfgFuncs(cfg,
 		loadImages,
-		runBootstrapContainers,
+		//runBootstrapContainers,
 		autoformat)
 	return err
 }

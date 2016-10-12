@@ -14,9 +14,9 @@ if [ ! -f ${ARTIFACTS}/vmlinuz ]; then
     exit 0
 fi
 
-if [ "$COMPRESS" == "" ]; then
+#if [ "$COMPRESS" == "" ]; then
     COMPRESS="gzip -1"
-fi
+#fi
 
 cd ${INITRD_DIR}
 
