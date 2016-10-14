@@ -15,40 +15,7 @@ rancher:
       dns:
         nameservers: [8.8.8.8, 8.8.4.4]
   bootstrap:
-    state-script:
-      image: {{.OS_REPO}}/os-statescript:{{.VERSION}}{{.SUFFIX}}
-      labels:
-        io.rancher.os.detach: "false"
-        io.rancher.os.scope: system
-        io.rancher.os.after: udev-bootstrap
-      log_driver: json-file
-      net: host
-      uts: host
-      privileged: true
-      volumes:
-      - /dev:/host/dev
-      - /lib/modules:/lib/modules
-      - /lib/firmware:/lib/firmware
-      - /usr/bin/ros:/usr/bin/ros:ro
-      - /usr/share/ros:/usr/share/ros:ro
-    udev-bootstrap:
-      image: {{.OS_REPO}}/os-udev:{{.VERSION}}{{.SUFFIX}}
-      environment:
-      - BOOTSTRAP=true
-      labels:
-        io.rancher.os.detach: "false"
-        io.rancher.os.scope: system
-      log_driver: json-file
-      net: host
-      uts: host
-      privileged: true
-      volumes:
-      - /dev:/host/dev
-      - /lib/modules:/lib/modules
-      - /lib/firmware:/lib/firmware
-      - /usr/bin/ros:/usr/bin/ros:ro
-  autoformat:
-    autoformat:
+    bootstrap:
       image: {{.OS_REPO}}/os-bootstrap:{{.VERSION}}{{.SUFFIX}}
       labels:
         io.rancher.os.detach: "false"

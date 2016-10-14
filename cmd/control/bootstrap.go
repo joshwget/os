@@ -1,32 +1,28 @@
-package cloudinitexecute
+package control
 
 import (
 	"os"
 	"os/exec"
+	"strings"
 	"time"
+
+	"github.com/codegangsta/cli"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/rancher/os/config"
 	"github.com/rancher/os/util"
 )
 
-func Main() {
-	log.Info("1")
+func bootstrapAction(c *cli.Context) error {
 	if err := udevSettle(); err != nil {
 		panic(err)
 	}
 
-	log.Info("2")
 	cfg := config.LoadConfig()
-	log.Info("3")
 
 	if cfg.Rancher.State.Dev != "" && cfg.Rancher.State.Wait {
-		log.Info("4")
 		waitForRoot(cfg)
-		log.Info("5")
 	}
-
-	log.Info("6")
 
 	if cfg.Rancher.State.MdadmScan {
 		cmd := exec.Command("mdadm", "--assemble", "--scan")
@@ -35,21 +31,29 @@ func Main() {
 		cmd.Run()
 	}
 
-	log.Info("7")
 	stateScript := cfg.Rancher.State.Script
 	if stateScript != "" {
 		// TODO stateScript
 	}
 
-	log.Info("8")
+	log.Info("1")
 
 	// TODO autoformat
-
-	if err := udevSettle(); err != nil {
-		panic(err)
+	cmd := exec.Command("/usr/sbin/auto-format2.sh")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = []string{
+		"AUTOFORMAT=" + strings.Join(cfg.Rancher.State.Autoformat, " "),
+	}
+	if err := cmd.Run(); err != nil {
+		return err
 	}
 
-	log.Info("9")
+	if err := udevSettle(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func udevSettle() error {
