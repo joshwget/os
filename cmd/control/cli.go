@@ -5,6 +5,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
+	"github.com/rancher/os/cmd/control/service"
 	"github.com/rancher/os/config"
 )
 
@@ -65,7 +66,7 @@ func Main() {
 			SkipFlagParsing: true,
 			Action:          envAction,
 		},
-		serviceCommand(),
+		service.Commands(),
 		{
 			Name:        "os",
 			Usage:       "operating system upgrade/downgrade",
