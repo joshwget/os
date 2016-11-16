@@ -123,6 +123,8 @@ RUN if [ -n "${!KERNEL_URL}" ]; then \
         curl -fL ${!KERNEL_URL} > ${DOWNLOADS}/kernel.tar.gz \
     ;fi
 
+RUN curl -fL https://get.docker.com/builds/Linux/x86_64/docker-1.10.3 > ${DOWNLOADS}/docker
+
 # Download SELinux Policy
 RUN curl -pfL ${SELINUX_POLICY_URL} > ${DOWNLOADS}/$(basename ${SELINUX_POLICY_URL})
 

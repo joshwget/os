@@ -136,6 +136,7 @@ rancher:
       volumes:
       - /usr/bin/ros:/usr/bin/dockerlaunch:ro
       - /usr/bin/ros:/usr/bin/system-docker:ro
+      - /usr/bin/system-docker:/usr/bin/docker.dist:ro
       - /usr/bin/ros:/sbin/poweroff:ro
       - /usr/bin/ros:/sbin/reboot:ro
       - /usr/bin/ros:/sbin/halt:ro
@@ -308,7 +309,7 @@ rancher:
       - /opt:/opt
     docker:
       {{if eq "amd64" .ARCH -}}
-      image: {{.OS_REPO}}/os-docker:1.12.3{{.SUFFIX}}
+      image: joshwget/os-docker:1.12.1
       {{else -}}
       image: {{.OS_REPO}}/os-docker:1.11.2{{.SUFFIX}}
       {{end -}}
@@ -331,8 +332,9 @@ rancher:
       volumes:
       - /sys:/host/sys
       - /var/lib/system-docker:/var/lib/system-docker:shared
+      - /usr/bin/runc:/usr/bin/runc
   system_docker:
-    exec: true
+    exec: false
     storage_driver: overlay
     restart: false
     graph: /var/lib/system-docker
