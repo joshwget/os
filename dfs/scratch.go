@@ -44,7 +44,6 @@ var (
 
 type Config struct {
 	Fork            bool
-	PidOne          bool
 	CommandName     string
 	DNSConfig       config.DNSConfig
 	BridgeName      string
@@ -204,9 +203,6 @@ func execDocker(config *Config, docker, cmd string, args []string) (*exec.Cmd, e
 		err := cmd.Start()
 		if err != nil {
 			return cmd, err
-		}
-		if config.PidOne {
-			PidOne()
 		}
 		return cmd, err
 	}
@@ -709,11 +705,6 @@ func Main() {
 
 	var config Config
 	args = ParseConfig(&config, args...)
-
-	if os.Getenv("DOCKER_LAUNCH_REAP") == "true" {
-		config.Fork = true
-		config.PidOne = true
-	}
 
 	log.Debugf("Launch config %#v", config)
 
