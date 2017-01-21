@@ -6,6 +6,7 @@ import (
 	"github.com/docker/docker/docker"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/rancher/cniglue"
+	"github.com/rancher/os/cmd/athena"
 	"github.com/rancher/os/cmd/cloudinitexecute"
 	"github.com/rancher/os/cmd/cloudinitsave"
 	"github.com/rancher/os/cmd/control"
@@ -13,6 +14,7 @@ import (
 	"github.com/rancher/os/cmd/power"
 	"github.com/rancher/os/cmd/respawn"
 	"github.com/rancher/os/cmd/sysinit"
+	"github.com/rancher/os/cmd/systemd"
 	"github.com/rancher/os/cmd/systemdocker"
 	"github.com/rancher/os/cmd/wait"
 	"github.com/rancher/os/dfs"
@@ -20,6 +22,7 @@ import (
 )
 
 var entrypoints = map[string]func(){
+	"athena":             athena.Main,
 	"cloud-init-execute": cloudinitexecute.Main,
 	"cloud-init-save":    cloudinitsave.Main,
 	"docker":             docker.Main,
@@ -33,6 +36,7 @@ var entrypoints = map[string]func(){
 	"ros-sysinit":        sysinit.Main,
 	"shutdown":           power.Main,
 	"system-docker":      systemdocker.Main,
+	"systemd":            systemd.Main,
 	"wait-for-docker":    wait.Main,
 	"cni-glue":           glue.Main,
 	"bridge":             bridge.Main,
