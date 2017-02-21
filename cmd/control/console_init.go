@@ -13,6 +13,7 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/rancher/os/cmd/cloudinitexecute"
+	"github.com/rancher/os/condition"
 	"github.com/rancher/os/config"
 	"github.com/rancher/os/log"
 	"github.com/rancher/os/util"
@@ -42,6 +43,7 @@ func consoleInitAction(c *cli.Context) error {
 }
 
 func consoleInitFunc() error {
+	condition.WaitFor("cloud-init")
 	cfg := config.LoadConfig()
 
 	// Now that we're booted, stop writing debug messages to the console
@@ -68,7 +70,8 @@ func consoleInitFunc() error {
 		}
 	}
 
-	password := config.GetCmdline("rancher.password")
+	// password := config.GetCmdline("rancher.password")
+	password := "rancher"
 	if password != "" {
 		cmd := exec.Command("chpasswd")
 		cmd.Stdin = strings.NewReader(fmt.Sprint("rancher:", password))

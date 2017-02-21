@@ -37,8 +37,7 @@ import (
 	"github.com/coreos/coreos-cloudinit/pkg"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/rancher/os/cmd/cloudinitsave/gce"
-	"github.com/rancher/os/cmd/control"
-	"github.com/rancher/os/cmd/network"
+	"github.com/rancher/os/condition"
 	rancherConfig "github.com/rancher/os/config"
 	"github.com/rancher/os/log"
 	"github.com/rancher/os/netconf"
@@ -58,16 +57,17 @@ func Main() {
 	log.InitLogger()
 	log.Info("Running cloud-init-save")
 
-	if err := control.UdevSettle(); err != nil {
-		log.Errorf("Failed to run udev settle: %v", err)
+	datasource := os.Getenv("DATASOURCE")
+	if datasource != "" {
+		rancherConfig.Set("rancher.cloud_init.datasources", []string{datasource})
 	}
-
-	cfg := rancherConfig.LoadConfig()
-	network.ApplyNetworkConfig(cfg)
 
 	if err := SaveCloudConfig(true); err != nil {
 		log.Errorf("Failed to save cloud-config: %v", err)
 	}
+
+	condition.Release("cloud-init")
+	select {}
 }
 
 func MountConfigDrive() error {
